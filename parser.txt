@@ -1,0 +1,100 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern FILE *yyin;
+extern FILE *yyout;
+extern int lineno;
+extern int yylex();
+
+void yyerror(const char *msg);
+%}
+
+/* Token definition */
+%token CHAR INT FLOAT DOUBLE BOOL IF ELSE WHILE FOR CONTINUE BREAK VOID RETURN
+%token ADDOP MULOP DIVOP INCR OROP ANDOP NOTOP EQUOP RELOP
+%token LPAREN RPAREN LBRACK RBRACK LBRACE RBRACE SEMI DOT COMMA ASSIGN REFER
+%token LARROW RARROW DOUBLECOLON
+%token ID ICONST BCONST
+
+
+%start program
+
+/* Expression priorities and rules */
+%%
+
+program         : LARROW declarations statements RARROW functions;
+
+declarations    : declarations declaration | declaration;
+
+declaration     : type names SEMI | type variable ASSIGN variable SEMI  ;
+
+type            : INT | CHAR | FLOAT | DOUBLE | BOOL | VOID;
+
+names           : variable | names COMMA variable;
+
+expression       :expression ADDOP expression |
+                  expression MULOP expression |
+                  expression DIVOP expression |
+                  expression INCR |
+                  INCR expression |
+                  expression OROP expression |
+                  expression ANDOP expression |
+                  NOTOP expression |
+                  expression EQUOP expression |
+                  expression RELOP expression |
+                  LPAREN expression RPAREN |
+                  variable
+                  ;
+
+
+variable        : ID | pointer ID | ICONST | BCONST;
+
+pointer         : pointer MULOP | MULOP ;
+
+statements      : statements statement | statement  ;
+
+statement       : if_statement | for_statement | while_statement | assignable | CONTINUE SEMI | BREAK SEMI | RETURN SEMI;
+
+if_statement    : IF DOUBLECOLON expression tail else_part ;
+
+else_part    : ELSE tail | ELSE IF DOUBLECOLON expression tail else_part  | /* empty */; 
+
+      
+assignable      : variable ASSIGN expression SEMI  | function_call ;
+
+for_statement   : FOR DOUBLECOLON declaration expression SEMI expression tail ;
+
+while_statement : WHILE DOUBLECOLON expression tail ;
+
+tail            : statement SEMI | LARROW statements RARROW ;
+
+
+reference       : REFER | /* empty */ ;
+
+functions       : functions function | function ;
+
+function        : ID LBRACK RBRACK DOUBLECOLON type LARROW declarations statements RARROW | /* empty */;
+
+function_call   : ID LBRACK RBRACK SEMI;
+
+%%
+
+void yyerror(const char *msg) {
+    fprintf(stderr, "Syntax error at line %d: %s\n", lineno, msg);
+    exit(1);
+}
+
+int main(int argc, char *argv[]) {
+    int flag;
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        exit(1);
+    }
+    printf("Parsing file: %s\n", argv[1]);
+    flag = yyparse();
+    fclose(yyin);
+    return flag;
+}
